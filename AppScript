@@ -1,0 +1,210 @@
+// --- CONFIGURATION ---
+const DOMAINS_TO_WATCH = [
+  "tldrnewsletter.com",
+  "morningbrew.com",
+  "forwardfuture.ai",
+  "forwardfuture.ai",
+  "news.bloomberg.com",
+  "daily.therundown.ai"
+];
+
+const FOLDER_NAME = "Newsletter Repository"; // Google Drive folder to store docs in
+
+
+// --- MAIN FUNCTION (this is what the trigger runs) ---
+function archiveNewsletters() {
+  const folder = getOrCreateFolder(FOLDER_NAME);
+  const docTitle = getDocTitle();
+  const doc = getOrCreateDoc(docTitle, folder);
+  const body = doc.getBody();
+
+  const query = buildGmailQuery();
+  const threads = GmailApp.search(query);
+
+  if (threads.length === 0) {
+    Logger.log("No new newsletter emails found.");
+    return;
+  }
+
+  threads.forEach(thread => {
+    const messages = thread.getMessages();
+    messages.forEach(message => {
+      const from = message.getFrom();
+      const subject = message.getSubject();
+      const date = message.getDate();
+      const htmlBody = message.getBody();
+
+      const plainText = htmlToPlainText(htmlBody);
+      const links = extractLinks(htmlBody);
+
+      appendToDoc(body, from, subject, date, plainText, links);
+
+      // Mark as processed by labelling it
+      labelMessage(thread);
+    });
+  });
+
+  DocumentApp.getActiveDocument && doc.saveAndClose
+    ? null
+    : null; // Doc auto-saves
+}
+
+
+// --- BUILD GMAIL SEARCH QUERY ---
+function buildGmailQuery() {
+  const domainFilters = DOMAINS_TO_WATCH.map(d => `from:@${d}`).join(" OR ");
+  // Only fetch emails from the last 25 hours to avoid duplicates
+  const since = new Date(Date.now() - 25 * 60 * 60 * 1000);
+  const dateStr = Utilities.formatDate(since, Session.getScriptTimeZone(), "yyyy/MM/dd");
+  return `(${domainFilters}) after:${dateStr} -label:newsletter-archived`;
+}
+
+
+// --- APPEND CONTENT TO DOC ---
+function appendToDoc(body, from, subject, date, plainText, links) {
+  const dateStr = Utilities.formatDate(date, Session.getScriptTimeZone(), "dd MMM yyyy, HH:mm");
+
+  // Section header
+  body.appendHorizontalRule();
+  const heading = body.appendParagraph(subject);
+  heading.setHeading(DocumentApp.ParagraphHeading.HEADING1);
+
+  body.appendParagraph(`From: ${from}`).setItalic(true);
+  body.appendParagraph(`Received: ${dateStr}`).setItalic(true);
+  body.appendParagraph(""); // spacer
+
+  // Main body text
+  const chunks = plainText.split("\n").filter(line => line.trim().length > 0);
+  chunks.forEach(chunk => {
+    body.appendParagraph(chunk);
+  });
+
+  // Links section
+  if (links.length > 0) {
+    body.appendParagraph(""); // spacer
+    const linksHeading = body.appendParagraph("Links");
+    linksHeading.setHeading(DocumentApp.ParagraphHeading.HEADING2);
+
+    links.forEach(link => {
+      const para = body.appendParagraph("");
+      const text = para.appendText(link.text || link.url);
+      text.setLinkUrl(link.url);
+    });
+  }
+
+  body.appendParagraph(""); // trailing spacer
+}
+
+
+// --- HTML TO PLAIN TEXT ---
+function htmlToPlainText(html) {
+  if (!html) return "";
+
+  let text = html;
+
+  // Strip style and script blocks entirely
+  text = text.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "");
+  text = text.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "");
+  // Strip HTML comments
+  text = text.replace(/<!--[\s\S]*?-->/g, "");
+
+  // Replace block elements with newlines
+  text = text.replace(/<br\s*\/?>/gi, "\n");
+  text = text.replace(/<\/p>/gi, "\n\n");
+  text = text.replace(/<\/div>/gi, "\n");
+  text = text.replace(/<\/h[1-6]>/gi, "\n\n");
+  text = text.replace(/<\/li>/gi, "\n");
+  text = text.replace(/<li[^>]*>/gi, "• ");
+
+  // Strip all remaining tags
+  text = text.replace(/<[^>]+>/g, "");
+
+  // Decode common HTML entities
+  text = text.replace(/&nbsp;/g, " ");
+  text = text.replace(/&amp;/g, "&");
+  text = text.replace(/&lt;/g, "<");
+  text = text.replace(/&gt;/g, ">");
+  text = text.replace(/&quot;/g, '"');
+  text = text.replace(/&#39;/g, "'");
+  text = text.replace(/&mdash;/g, "-");
+  text = text.replace(/&ndash;/g, "-");
+  text = text.replace(/&#[0-9]+;/g, "");
+
+  // Clean up excess whitespace
+  text = text.replace(/\n{3,}/g, "\n\n");
+  text = text.trim();
+
+  return text;
+}
+
+function extractLinks(html) {
+  if (!html) return [];
+
+  const links = [];
+  const seen = new Set();
+
+  // Known tracking/redirect domains to skip
+  const skipDomains = [
+    "beehiiv.com", "mailchimp.com", "sendgrid.net", "mandrillapp.com",
+    "click.convertkit", "track.", "open.", "email.", "links."
+  ];
+
+  const regex = /<a\s+(?:[^>]*?\s+)?href="([^"]*)"[^>]*>(.*?)<\/a>/gi;
+  let match;
+
+  while ((match = regex.exec(html)) !== null) {
+    const url = match[1].trim();
+    const rawText = match[2].replace(/<[^>]+>/g, "").trim();
+    const text = rawText.length > 0 ? rawText : url;
+
+    const isTracking = skipDomains.some(d => url.includes(d));
+
+    if (
+      url.startsWith("http") &&
+      !url.includes("unsubscribe") &&
+      !url.includes("mailto:") &&
+      !isTracking &&
+      !seen.has(url)
+    ) {
+      seen.add(url);
+      links.push({ url, text });
+    }
+  }
+
+  return links;
+}
+
+// --- LABEL PROCESSED EMAILS ---
+function labelMessage(thread) {
+  let label = GmailApp.getUserLabelByName("newsletter-archived");
+  if (!label) {
+    label = GmailApp.createLabel("newsletter-archived");
+  }
+  thread.addLabel(label);
+}
+
+
+// --- GOOGLE DRIVE HELPERS ---
+function getOrCreateFolder(name) {
+  const folders = DriveApp.getFoldersByName(name);
+  if (folders.hasNext()) return folders.next();
+  return DriveApp.createFolder(name);
+}
+
+function getDocTitle() {
+  const now = new Date();
+  const day = Utilities.formatDate(now, Session.getScriptTimeZone(), "dd/MM/yyyy");
+  return `Newsletter Repository - ${day}`;
+}
+
+function getOrCreateDoc(title, folder) {
+  const files = folder.getFilesByName(title);
+  if (files.hasNext()) {
+    return DocumentApp.openById(files.next().getId());
+  }
+  const doc = DocumentApp.create(title);
+  const file = DriveApp.getFileById(doc.getId());
+  folder.addFile(file);
+  DriveApp.getRootFolder().removeFile(file); // remove from root
+  return doc;
+}
