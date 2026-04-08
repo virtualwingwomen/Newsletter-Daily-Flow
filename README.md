@@ -1,6 +1,4 @@
-# Newsletter Archiver
-
-A Google Apps Script that automatically archives newsletter emails from Gmail into structured Google Docs, ready for use with tools like NotebookLM. This is v1.6.
+A Google Apps Script that automatically archives newsletter emails from Gmail into structured Google Docs. Currently v1.3. The archived docs feed into a daily workflow using tools like NotebookLM, with plans drafted to build a dedicated front-end. 
 
 ## What it does
 
