@@ -1,12 +1,17 @@
 // --- CONFIGURATION ---
+// Replace "newsletterX.example" with your real sender domains in your private copy.
+// Keeping these as generic examples here avoids exposing your actual subscriptions.
 const DOMAINS_TO_WATCH = [
-  "tldrnewsletter.com",
-  "morningbrew.com",
-  "forwardfuture.ai",
-  "forwardfuture.ai",
-  "news.bloomberg.com",
-  "daily.therundown.ai"
+  "newsletter1.example",
+  "newsletter2.example",
+  "newsletter3.example",
+  "newsletter4.example",
+  "newsletter5.example",
+  "newsletter6.example"
 ];
+
+const FOLDER_NAME = "Newsletter Repository"; // Google Drive folder to store docs in
+
 
 const FOLDER_NAME = "Newsletter Repository"; // Google Drive folder to store docs in
 
