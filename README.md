@@ -1,31 +1,20 @@
 A Google Apps Script that automatically archives newsletter emails from Gmail into structured Google Docs. Currently v1.3. The archived docs feed into a daily workflow using tools like NotebookLM, with plans drafted to build a dedicated front-end. 
 
-## What it does
-
 The script runs daily on a timer and:
-
 1. Searches Gmail for emails from a configurable list of newsletter domains
 2. Extracts the content, strips HTML formatting, and pulls out article links
 3. Writes everything into a dated Google Doc inside a "Newsletter Repository" folder in Google Drive
 4. Labels processed emails `newsletter-archived` so they're skipped on the next run
 
-Each email gets its own section in the doc with a heading, sender info, the plain text body, and a list of extracted links underneath.
+Each email gets its own section in the doc with a heading, sender info, the plain text body, and a list of extracted links underneath for referncing later.
 
-## Supported newsletters (default)
-
-- TLDR (`tldrnewsletter.com`)
-- Morning Brew (`morningbrew.com`)
-- Forward Future (`forwardfuture.ai`)
-- Bloomberg (`news.bloomberg.com`)
-- The Rundown AI (`daily.therundown.ai`)
-
-You can add or remove domains by editing the `DOMAINS_TO_WATCH` array at the top of the script.
+## Note: ensure you add your own domains by editing the `DOMAINS_TO_WATCH` array at the top of the script!!
 
 ## Setup
 
 1. Go to [script.google.com](https://script.google.com) and create a new project
 2. Paste the contents of `archiveNewsletters.gs` into the editor
-3. Edit the `DOMAINS_TO_WATCH` list to match the newsletters you subscribe to
+3. Add the `DOMAINS_TO_WATCH` list to match the newsletters you subscribe to
 4. Run `archiveNewsletters` once manually and authorise the required permissions (Gmail, Drive, Docs)
 5. Set up a daily trigger:
    - Go to **Triggers** (clock icon in the left sidebar)
@@ -47,7 +36,7 @@ You can add or remove domains by editing the `DOMAINS_TO_WATCH` array at the top
 
 ## Cost
 
-Free. The script runs entirely within Google Apps Script using built-in services (Gmail, Drive, Docs). No external APIs or paid tools required.
+Free (🫡). The script runs entirely within Google Apps Script using built-in services (Gmail, Drive, Docs). No external APIs or paid tools required.
 
 ## Bugs fixed in v1.2
 
